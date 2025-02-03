@@ -1,0 +1,26 @@
+# Ignore database files
+db.sqlite3
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment
+ecomenv/
+.env/
+*.env
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE/editor files
+.vscode/
+.idea/
+*.swp
+
+# Ignore static & media files (optional, if you don't want to track uploads)
+staticfiles/
+media/
