@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.timezone import now
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -65,3 +66,25 @@ class UserLoginSerializer(serializers.Serializer):
                 "role": user.role
             }
         }
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    profile_picture = serializers.ImageField(required=False)
+
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'phone_number', 'address', 'profile_picture']
+        read_only_fields = ['id', 'email']
+
+    def validate_username(self, value):
+        """Ensures username can only be changed once per month."""
+        user = self.instance
+        if user and user.username != value:
+            if not user.can_change_username():
+                raise serializers.ValidationError("You can only change your username once per month.")
+        return value
+    
+    def update(self, instance , validated_data):
+        """Update user profile and track username changes."""
+        if 'username' in validated_data and instance.username != validated_data['username']:
+            instance.last_username_change = now()
+        return super().update(instance, validated_data)

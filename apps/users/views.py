@@ -1,10 +1,10 @@
-from rest_framework import generics
+from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from rest_framework import status
 from rest_framework.response import Response
-from .serializers import UserRegistrationSerializer, UserLoginSerializer
+from .serializers import UserRegistrationSerializer, UserLoginSerializer, UserProfileSerializer
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -49,3 +49,12 @@ class UserLogoutView(APIView):
         
         except Exception as e:
             return Response({"error": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+
+class UserProfileView(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        """Ensures user can access and update only their own profile."""
+        return self.request.user
