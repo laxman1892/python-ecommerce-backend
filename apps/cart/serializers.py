@@ -24,3 +24,20 @@ class CartSerializer(serializers.ModelSerializer):
 
     def get_total_cost(self, obj):
         return sum(item.product.price * item.quantity for item in obj.items.all())
+    
+class CartAddUpdateSerializer(serializers.Serializer):
+    product_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+
+    def validate_product_id(self, value):
+        try:
+            Product.objects.get(id=value)
+        except Product.DoesNotExist:
+            raise serializers.ValidationError("Invalid product ID.")
+        return value
+    
+    def validate(self, data):
+        product = Product.objects.get(id=data['product_id'])
+        if data['quantity'] > product.stock:
+            raise serializers.ValidationError("Requested quantity exceeds available stock.")
+        return data
