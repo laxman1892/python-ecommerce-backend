@@ -1,8 +1,8 @@
 from django.urls import path
-from . import views
+from .views import ProcessPaymentView, PaymentHistoryView, PaymentDetailView
 
 urlpatterns = [
-    # Define your URL patterns here
-    # Example:
-     path('payment/', views.payment_view, name='payment'),
+     path('process/', ProcessPaymentView.as_view(), name='process-payment'),
+     path('history/', PaymentHistoryView.as_view(), name='payment-history'),
+     path('<int:pk>/', PaymentDetailView.as_view(), name='payment-detail'),
 ]
