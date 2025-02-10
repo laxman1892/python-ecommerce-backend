@@ -1,8 +1,14 @@
 from django.urls import path
-from . import views
+from .views import (
+    ShippingAddressView,
+    UserShippingAddressListView,
+    ShipmentTrackingView,
+    UpdateShipmentStatusView
+)
 
 urlpatterns = [
-    # Define your URL patterns here
-    # Example:
-    path('shipping/', views.shipping_home, name='shipping_home'),
+    path('shipping/', UserShippingAddressListView.as_view(), name='user-shipping-addresses'),
+    path('shipping/add/', ShippingAddressView.as_view(), name='add-shipping-address'),
+    path('tracking/<int:pk>/', ShipmentTrackingView.as_view(), name='shipment-tracking'),
+    path('tracking/update/<int:pk>/', UpdateShipmentStatusView.as_view(), name='update-shipment-status'),
 ]
