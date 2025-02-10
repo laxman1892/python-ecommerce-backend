@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
-from orders.models import Order
+from cart.models import Order
 import uuid
 
 User = get_user_model()
