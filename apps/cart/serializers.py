@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Cart, CartItem
+from .models import Cart, CartItem, Order, OrderItem
 from products.models import Product
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -41,3 +41,22 @@ class CartAddUpdateSerializer(serializers.Serializer):
         if data['quantity'] > product.stock:
             raise serializers.ValidationError("Requested quantity exceeds available stock.")
         return data
+    
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product', 'quantity', 'price']
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True, source='order_items')
+
+    class Meta:
+        model = Order
+        fields = ['id', 'user', 'total_price', 'status', 'created_at', 'updated_at', 'items', 'shipping_address', 'payment_method']
+        read_only_fields = ['id', 'user', 'total_price', 'status', 'created_at', 'updated_at']
+
+    def validate_payment_method(self, value):
+        valid_methods = ['cod', 'card', 'paypal']
+        if value not in valid_methods:
+            raise serializers.ValidationError("Invalid payment method selected.")
+        return value
