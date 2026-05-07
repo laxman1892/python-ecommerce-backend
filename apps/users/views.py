@@ -50,7 +50,7 @@ class UserLogoutView(APIView):
         except Exception as e:
             return Response({"error": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
 
-class UserProfileView(generics.RetrieveAPIView):
+class UserProfileView(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]

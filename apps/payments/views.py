@@ -1,4 +1,4 @@
-import uuid
+from decimal import Decimal, InvalidOperation
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -19,21 +19,40 @@ class ProcessPaymentView(generics.CreateAPIView):
 
         order = get_object_or_404(Order, id=order_id, user=user)
 
-        if order.total_price != float(amount):
+        try:
+            payment_amount = Decimal(str(amount))
+        except (InvalidOperation, TypeError):
+            return Response({'error': "Invalid payment amount"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if order.total_price != payment_amount:
             return Response({
                 'error': "Invalid payment amount"
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        if Payment.objects.filter(order=order, status='completed').exists():
+            return Response({
+                'error': "This order has already been paid."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        simulate_result = request.data.get('simulate_result', 'completed')
+        if simulate_result not in ['completed', 'failed']:
+            return Response({
+                'error': "simulate_result must be either 'completed' or 'failed'."
+            }, status=status.HTTP_400_BAD_REQUEST)
         
-        #* Simulating a dummy payment gateway response
-        transation_id = uuid.uuid4()
+        # Simulate a deterministic payment gateway response for local/dev use.
         payment = Payment.objects.create(
             user=user,
             order=order,
-            amount=amount,
-            status="completed",
-            transation_id=transation_id,
+            amount=payment_amount,
+            status=simulate_result,
         )
 
+        if simulate_result == 'failed':
+            return Response(PaymentSerializer(payment).data, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+        order.status = 'processing'
+        order.save(update_fields=['status'])
         return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
     
 class PaymentHistoryView(generics.ListAPIView):

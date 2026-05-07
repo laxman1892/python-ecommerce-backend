@@ -14,7 +14,7 @@ class ProductSerializer(serializers.ModelSerializer):
         request = self.context['request']
         user = request.user
 
-        if user.role != 'seller' and user.is_staff:
+        if user.role not in ['seller', 'admin'] and not user.is_staff:
             raise serializers.ValidationError("You are not authorized to create products.")
         
         validated_data['seller'] = user

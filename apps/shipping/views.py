@@ -21,7 +21,7 @@ class ShippingAddressView(generics.CreateAPIView):
                 'error': "Order not found or does not belong to you."
             }, status=status.HTTP_404_NOT_FOUND)
         
-        if ShippingAddress.objects.filter(order=order).exists:
+        if ShippingAddress.objects.filter(order=order).exists():
             return Response({
                 'error': "Shipping address already exists for this order."
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -55,7 +55,12 @@ class UpdateShipmentStatusView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return ShipmentTracking.objects.all()
+        user = self.request.user
+        if user.is_staff or user.role == 'admin':
+            return ShipmentTracking.objects.all()
+        if user.role == 'seller':
+            return ShipmentTracking.objects.filter(order__items__product__seller=user).distinct()
+        return ShipmentTracking.objects.none()
     
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

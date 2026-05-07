@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.utils.timezone import now, timedelta
 from .models import Cart, CartItem, Order, OrderItem
 from products.models import Product
-from .serializers import CartSerializer, CartItemSerializer, OrderSerializer
+from .serializers import CartSerializer, CartAddUpdateSerializer, OrderSerializer
 from django.db import transaction
 
 class CartView(generics.RetrieveAPIView):
@@ -19,28 +19,18 @@ class CartView(generics.RetrieveAPIView):
 
 class AddToCartView(generics.CreateAPIView):
     """Add an item to the authenticated user's cart."""
-    serializer_class = CartItemSerializer
+    serializer_class = CartAddUpdateSerializer
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        user = request.user
-        product_id = request.data.get('product')
-        quantity = request.data.get('quantity', 1)
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        serializer = self.get_serializer(data=request.data, context={'cart': cart})
+        serializer.is_valid(raise_exception=True)
 
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response({'error': "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        cart, created = Cart.objects.get_or_create(user=user)
-        cart_item, item_created = CartItem.objects.get_or_create(
-            cart=cart, product=product)
-
-        if not item_created:
-            cart_item.quantity += int(quantity)
-        else:
-            cart_item.quantity = int(quantity)
-
+        product = serializer.validated_data['product']
+        quantity = serializer.validated_data['quantity']
+        cart_item, item_created = CartItem.objects.get_or_create(cart=cart, product=product)
+        cart_item.quantity = quantity
         cart_item.save()
         return Response(CartSerializer(cart).data, status=status.HTTP_200_OK)
 
@@ -76,11 +66,12 @@ class ClearCartView(generics.DestroyAPIView):
         
 class ExpiredCartCleanupView(generics.DestroyAPIView):
     """Remove carts older than 24 hours."""
+    permission_classes = [IsAuthenticated]
+
     def delete(self, request, *args, **kwargs):
         expiration_time = now() - timedelta(hours=24)
-        expired_carts = Cart.objects.filter(updated_at_lt=expiration_time)
-        expired_carts.delete()
-        return Response({'message': "Expired carts removed."}, status=status.HTTP_200_OK)
+        deleted_count, _ = Cart.objects.filter(updated_at__lt=expiration_time).delete()
+        return Response({'message': "Expired carts removed.", 'deleted_count': deleted_count}, status=status.HTTP_200_OK)
     
 class PlaceOrderView(generics.CreateAPIView):
     serializer_class = OrderSerializer
@@ -100,8 +91,19 @@ class PlaceOrderView(generics.CreateAPIView):
 
         if not shipping_address or not payment_method:
             return Response({'error': "Shipping address and payment method are required."}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
         with transaction.atomic():
+            cart_items = CartItem.objects.select_related('product').select_for_update().filter(cart=cart)
+
+            for item in cart_items:
+                if item.quantity > item.product.stock:
+                    return Response({
+                        'error': f"Not enough stock for {item.product.name}."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
             order = Order.objects.create(
                 user=user,
                 shipping_address=shipping_address,
@@ -109,25 +111,18 @@ class PlaceOrderView(generics.CreateAPIView):
                 total_price=cart.get_total_price()
             )
 
-        for item in cart_items:
-            #! Ensure enough stock is available
-            if item.quantity > item.product.stock:
-                return Response({
-                    'error': f"Not enough stock for {item.product.name}."
-                }, status=status.HTTP_400_BAD_REQUEST)
+            for item in cart_items:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item.product,
+                    quantity=item.quantity,
+                    price=item.product.price * item.quantity
+                )
 
-            OrderItem.objects.create(
-                order=order,
-                product=item.product,
-                quantity=item.quantity,
-                price=item.product.price * item.quantity
-            )
+                item.product.stock -= item.quantity
+                item.product.save(update_fields=['stock'])
 
-            #? Reduce the stock of the product
-            item.product.stock -= item.quantity
-            item.product.save()
-
-        cart.items.all().delete() #! Clearing the carts after placing order
+            cart.items.all().delete() #! Clearing the carts after placing order
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
     
 class UserOrderListView(generics.ListAPIView):

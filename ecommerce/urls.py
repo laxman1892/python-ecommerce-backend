@@ -22,8 +22,8 @@ urlpatterns = [
     path('api/users/', include('users.urls')),  # User management
     path('api/products/', include('products.urls')),  # Products
     path('api/cart/', include('cart.urls')),  # Shopping cart
-    # path('api/orders/', include('apps.orders.urls')),  # Orders
+    path('api/orders/', include('orders.urls')),  # Orders
     path('api/payments/', include('payments.urls')),  # Payments
     path('api/shipping/', include('shipping.urls')),  # Shipping & tracking
-    # path('api/admin-panel/', include('apps.admin_panel.urls')),  # Admin dashboard
+    path('api/admin-panel/', include('admin_panel.urls')),  # Admin dashboard
 ]

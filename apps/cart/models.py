@@ -11,6 +11,10 @@ class Cart(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def get_total_price(self):
+        """Return the current total for all items in the cart."""
+        return sum(item.product.price * item.quantity for item in self.items.select_related('product'))
+
     def has_expired(self):
         """To check if the cart has expired or not."""
         expiration_time = self.updated_at + timedelta(hours=24)

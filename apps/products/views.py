@@ -32,7 +32,7 @@ class ProductUpdateView(generics.UpdateAPIView):
 
     def perform_update(self, serializer):
         product = self.get_object()
-        if self.request.user != product.seller and not self.request.user.is_staff:
+        if self.request.user != product.seller and self.request.user.role != "admin" and not self.request.user.is_staff:
             raise PermissionDenied("You are not authorized to update this product.")
         serializer.save()
 
@@ -43,6 +43,6 @@ class ProductDeleteView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, IsSellerOrAdmin]
 
     def perform_destroy(self, instance):
-        if self.request.user != instance.seller and not self.request.user.is_staff:
+        if self.request.user != instance.seller and self.request.user.role != "admin" and not self.request.user.is_staff:
             raise PermissionDenied("You are not authorized to delete this product.")
         instance.delete()
